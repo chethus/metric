@@ -1,0 +1,19 @@
+name: cs329h-pset2
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pytorch-cuda
+  - ca-certificates
+  - openssl
+  - matplotlib
+  - certifi
+  - tqdm
+  - scikit-learn
+  - numpyro
+  - jaxlib[build=*cuda*]
+  - cuda-nvcc
+  - ipykernel
