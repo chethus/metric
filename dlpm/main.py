@@ -14,6 +14,7 @@ class DataDistribution:
         """
         # self.weights = torch.tensor([-0.3356, -1.4104, 0.3144, -0.5591, 1.0426, 0.6036, -0.7549, -1.1909, 1.4779, -0.7513])
         self.D = d
+        self.num_classes = k
         gen = torch.Generator().manual_seed(42)
         self.weights = 3 * torch.rand((k, d), generator=gen) - 1.5
         self.data = torch.randn(N, self.D, generator=gen)
@@ -33,7 +34,7 @@ def classifier_metrics(data_dist, weights):
     """
     # YOUR CODE HERE (~3-5 lines)
     probs = data_dist.probs
-    predicted_class = F.one_hot(torch.argmax(data_dist.probs * weights, dim=-1))
+    predicted_class = F.one_hot(torch.argmax(probs * weights, dim=-1), num_classes=data_dist.num_classes)
     accuracies = (probs * predicted_class).mean(axis=0)
     return accuracies
     # END OF YOUR CODE
@@ -62,14 +63,14 @@ def sweep_classifiers(data_dist: DataDistribution):
     return upper_boundary, lower_boundary
 
 class Oracle:
-    def __init__(self, a_star: float):
+    def __init__(self, a_star: torch.Tensor):
         """
         Initializes the oracle with a given theta for preference evaluation.
         
         Args:
         - theta (float): Oracle angle in radians.
         """
-        self.theta = torch.tensor(a_star)
+        self.theta = a_star
 
     def evaluate_dlpm(self, accuracies):
         """
@@ -117,7 +118,7 @@ def rbo_dlpm(m, k1, k2, k):
     new_a[k2] = 1 - m
     return new_a
 
-def dlpm_elicitation(epsilon, oracle, data_dist, k, max_iter=np.inf):
+def dlpm_elicitation(oracle, data_dist, k, epsilon=1e-5, max_iter=np.inf):
     """
     Inputs:
     - epsilon: some epsilon > 0 representing threshold of error
@@ -192,11 +193,10 @@ def plot_confusion_region():
     plt.show()
 
 # Create instance and get upper & lower boundary data
-k=2
-theta = torch.tensor(0.1)
-a_star = torch.tensor([torch.cos(theta), torch.sin(theta)])
+k=3
+a_star = torch.tensor([0.3, 0.2, 0.5])
 data_dist = DataDistribution(N=10000000, k=k)
-oracle = Oracle(a_star=a_star)
-a_hat = dlpm_elicitation(1e-5, oracle, data_dist, 2)
-print("A_hat", a_hat, a_hat[0]/a_hat[1])
-print("A_star", a_star, a_star[0]/a_star[1])
+oracle = Oracle(a_star)
+a_hat = dlpm_elicitation(oracle, data_dist, k)
+print("A_hat", a_hat, a_hat/a_hat.sum())
+print("A_star", a_star, a_star/a_star.sum())
