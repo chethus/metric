@@ -74,9 +74,7 @@ class Classifier:
         # YOUR CODE HERE (~3-5 lines)
         probs = data_dist.probs
         predicted_class = F.one_hot(torch.argmax(data_dist.probs * self.weights, dim=-1), num_classes=NUM_CLASSES)
-        wrong_class = torch.rand(predicted_class.shape[0]) < self.wrong_class_prob
-        predicted_class *= ~wrong_class[:,None]
-        accuracies = (probs * predicted_class).mean(axis=0)
+        accuracies = (probs * (1 - self.wrong_class_prob) * predicted_class).mean(axis=0)
         return {ACCURACIES: accuracies, **self.properties}
 
 class Oracle:
@@ -185,7 +183,6 @@ def dlpm_elicitation(oracle, data_dist, epsilon=1e-5):
                     a = d
                 else:
                     a = d
-
             midpt = (a + b) / 2
             a_hat[attribute][attribute_dim] = (1 - midpt) / midpt
     one_norm = sum([v.sum().item() for v in a_hat.values()])
@@ -213,9 +210,9 @@ def plot_confusion_region():
     plt.show()
 
 # Create instance and get upper & lower boundary data
-a_star = {ACCURACIES: [0.3, 0.1], "speed": [0.2], "cost": [0.4]}
+a_star = {ACCURACIES: [0.1, 0.05], "speed": [0.8], "cost": [0.05]}
 data_dist = DataDistribution(N=10000000)
 oracle = Oracle(a_star)
-a_hat = dlpm_elicitation(oracle, data_dist, epsilon=1e-2)
+a_hat = dlpm_elicitation(oracle, data_dist, epsilon=1e-3)
 print("A_hat", {k: a_hat[k] for k in sorted(a_hat)})
 print("A_star", {k: a_star[k] for k in sorted(a_star)})
