@@ -131,7 +131,7 @@ def construct_test_classifier(m, test_attribute, test_attribute_dim, data_dist):
         wrong_class_prob = 1 - torch.sin(theta)
     return Classifier(weights, wrong_class_prob=wrong_class_prob, **properties)
 
-def dlpm_elicitation(oracle, data_dist, epsilon=1e-5):
+def dlpm_elicitation(oracle, data_dist,  epsilon=0, max_iter=np.inf):
     """
     Inputs:
     - epsilon: some epsilon > 0 representing threshold of error
@@ -143,6 +143,7 @@ def dlpm_elicitation(oracle, data_dist, epsilon=1e-5):
     Outputs:
     - estimate for true DLPM weights
     """
+    num_queries = 0
     a_hat = {attribute: torch.zeros(attribute_space.shape) for attribute, attribute_space in Classifier.attributes_space.items()}
     a_hat[ACCURACIES][0] = 1
     for attribute in sorted(Classifier.attributes_space.keys()):
@@ -155,7 +156,8 @@ def dlpm_elicitation(oracle, data_dist, epsilon=1e-5):
             a = 0  # lower bound of binary search
             b = 1  # upper bound of binary search
 
-            while b - a > epsilon:
+            itr = 0
+            while b - a > epsilon and itr < max_iter:
                 c = (3 * a + b) / 4
                 d = (a + b) / 2
                 e = (a + 3 * b) / 4
@@ -171,6 +173,9 @@ def dlpm_elicitation(oracle, data_dist, epsilon=1e-5):
                 response_de = oracle.preferred_classifier(attr_d, attr_e)
                 response_eb = oracle.preferred_classifier(attr_e, attr_b)
 
+                num_queries += 4
+
+
                 # update ranges to keep the peak
                 if response_ac:
                     b = d
@@ -183,8 +188,11 @@ def dlpm_elicitation(oracle, data_dist, epsilon=1e-5):
                     a = d
                 else:
                     a = d
+                itr += 1
+
             midpt = (a + b) / 2
             a_hat[attribute][attribute_dim] = (1 - midpt) / midpt
+    print(f"Total number of queries: {num_queries}")
     one_norm = sum([v.sum().item() for v in a_hat.values()])
     return {k: v/one_norm for k, v in a_hat.items()}
 
