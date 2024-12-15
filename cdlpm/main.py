@@ -47,11 +47,26 @@ def sweep_classifiers(data_dist: DataDistribution):
     return upper_boundary, lower_boundary
 
 class Classifier:
+    # For base implementation
     attributes_space = spaces.Dict({
         ACCURACIES: spaces.Box(0, 1, shape=(NUM_CLASSES,)),
         "speed": spaces.Box(0, 5, shape=(1,)),
         "cost": spaces.Box(-0.3, 0, shape=(1,)),
     })
+
+    # For iteration plot experiment (note that NUM_CLASSES must be 2 here!)
+    # attributes_space = spaces.Dict({
+    #     ACCURACIES: spaces.Box(0, 1, shape=(NUM_CLASSES,)),
+    #     "cost": spaces.Box(0, 10, shape=(1,)),
+    # })
+
+    # For 3 classes (NUM_CLASSES = 3) and 3 attributes 
+    # attributes_space = spaces.Dict({
+    #     ACCURACIES: spaces.Box(0, 1, shape=(NUM_CLASSES,)),
+    #     "cost1": spaces.Box(-0.5, 0, shape=(1,)),
+    #     "cost2": spaces.Box(0, 20, shape=(1,)),
+    #     "cost3": spaces.Box(0, 30, shape=(1,)),
+    # })
 
     def __init__(self, weights, wrong_class_prob=0, **properties):
         self.weights = weights
@@ -218,9 +233,77 @@ def plot_confusion_region():
     plt.show()
 
 # Create instance and get upper & lower boundary data
-a_star = {ACCURACIES: [0.1, 0.05], "speed": [0.8], "cost": [0.05]}
-data_dist = DataDistribution(N=10000000)
-oracle = Oracle(a_star)
-a_hat = dlpm_elicitation(oracle, data_dist, epsilon=1e-3)
-print("A_hat", {k: a_hat[k] for k in sorted(a_hat)})
-print("A_star", {k: a_star[k] for k in sorted(a_star)})
+def base_implementation():
+    a_star = {ACCURACIES: [0.10, 0.05], "speed": [0.05], "cost": [0.80]}
+    data_dist = DataDistribution(N=10000000)
+    oracle = Oracle(a_star)
+    a_hat = dlpm_elicitation(oracle, data_dist, epsilon=1e-3)
+    print("A_hat", {k: a_hat[k] for k in sorted(a_hat)})
+    print("A_star", {k: a_star[k] for k in sorted(a_star)})
+
+def increased_class_and_attr():
+    a_star = {ACCURACIES: [0.12, 0.08, 0.07], "cost1": [0.32], "cost2": [0.19], "cost3": [0.22]}
+    data_dist = DataDistribution(N=10000000)
+    oracle = Oracle(a_star)
+    a_hat = dlpm_elicitation(oracle, data_dist, epsilon=1e-3)
+    print("A_hat", {k: a_hat[k] for k in sorted(a_hat)})
+    print("A_star", {k: a_star[k] for k in sorted(a_star)})
+
+def create_iteration_plot():
+    a_star = {ACCURACIES: [0.15, 0.05], "cost": [0.8]}
+    data_dist = DataDistribution(N=10000000)
+    oracle = Oracle(a_star)
+
+    ax = plt.figure().add_subplot(projection='3d')
+    ax.set_xlabel("Class 1 True Positive Weight")
+    ax.set_ylabel("Class 2 True Positive Weight")
+    ax.set_zlabel("Cost Weight")
+    x = []
+    y = []
+    z = []
+    for i in range(5):
+        a_hat = dlpm_elicitation(oracle, data_dist, max_iter=i)
+        x.append(a_hat["accuracies"][0].item())
+        y.append(a_hat["accuracies"][1].item())
+        z.append(a_hat["cost"].item())
+        print(a_hat)
+    
+    for i in range(len(x)):
+        if i == 0:
+            ax.text(x[i]-0.01, y[i]-0.07, z[i]-0.01, f'iter {i}', color='black', fontsize=10)
+        else:
+            ax.text(x[i]+0.005, y[i]+0.005, z[i]+0.005, f'iter {i}', color='black', fontsize=10)
+    ax.text(0.15-0.005, 0.05-0.04, 0.8-0.04, f'goal', color='red', fontsize=10)
+    ax.plot3D(x,y,z)
+    ax.scatter(x,y,z)
+    ax.scatter([0.15],[0.05],[0.8],color="red")
+    plt.show()
+
+def plot_L1_error():
+    a_star = {ACCURACIES: [0.10, 0.05], "speed": [0.05], "cost": [0.80]}
+    a_star_values = np.array([0.10,0.05,0.05,0.80])
+    data_dist = DataDistribution(N=10000000)
+    oracle = Oracle(a_star)
+    iterations = [i for i in range(7)]
+    error = []
+    for i in range(7):
+        a_hat = dlpm_elicitation(oracle, data_dist, max_iter=i)
+        a_hat_values = []
+        a_hat_values.append(a_hat["accuracies"][0].item())
+        a_hat_values.append(a_hat["accuracies"][1].item())
+        a_hat_values.append(a_hat["speed"].item())
+        a_hat_values.append(a_hat["cost"].item())
+        a_hat_values = np.array(a_hat_values)
+        error.append(np.mean(np.abs(a_hat_values - a_star_values)))
+    plt.xlabel('Number of Iterations', fontsize=14)
+    plt.ylabel('L1 Error of Weights', fontsize=14)
+    plt.tick_params(axis='both', labelsize=12)
+    plt.plot(iterations, error, linewidth=2)
+    plt.show()
+
+if __name__ == "__main__":
+    base_implementation()
+    # increased_class_and_attr()
+    # base_implementation()
+    # create_iteration_plot()
+    # plot_L1_error()
